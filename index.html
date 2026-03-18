@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laika Agent - AI QR Generator</title>
+
+<!-- QR Code Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        color: white;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 500px;
+        margin: auto;
+        background: rgba(0,0,0,0.6);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+        margin-bottom: 10px;
+    }
+
+    input, textarea, select {
+        width: 90%;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border: none;
+        outline: none;
+    }
+
+    button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        background: #00c6ff;
+        color: black;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #00a2cc;
+    }
+
+    #qrcode {
+        margin-top: 20px;
+    }
+
+    .message {
+        margin-top: 15px;
+        font-size: 14px;
+        color: #00ffcc;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🤖 Laika Agent</h1>
+    <p>AI QR Code Generator for Images & Files</p>
+
+    <select id="inputType">
+        <option value="text">Text / Data</option>
+        <option value="url">URL / Website</option>
+        <option value="file">Upload File</option>
+    </select>
+
+    <textarea id="textInput" placeholder="Enter text or URL..."></textarea>
+
+    <input type="file" id="fileInput" style="display:none;">
+
+    <br>
+    <label>QR Size:</label>
+    <select id="size">
+        <option value="200">200x200</option>
+        <option value="300">300x300</option>
+        <option value="512">512x512</option>
+    </select>
+
+    <br><br>
+    <button onclick="generateQR()">Generate QR Code</button>
+
+    <div id="qrcode"></div>
+
+    <div class="message" id="message"></div>
+</div>
+
+<script>
+const inputType = document.getElementById("inputType");
+const textInput = document.getElementById("textInput");
+const fileInput = document.getElementById("fileInput");
+
+inputType.addEventListener("change", () => {
+    if (inputType.value === "file") {
+        textInput.style.display = "none";
+        fileInput.style.display = "block";
+    } else {
+        textInput.style.display = "block";
+        fileInput.style.display = "none";
+    }
+});
+
+function generateQR() {
+    const qrContainer = document.getElementById("qrcode");
+    const message = document.getElementById("message");
+    const size = document.getElementById("size").value;
+
+    qrContainer.innerHTML = "";
+    message.innerHTML = "";
+
+    let data = "";
+
+    if (inputType.value === "file") {
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Please select a file.");
+            return;
+        }
+
+        // Simulate file URL (browser limitation)
+        data = URL.createObjectURL(file);
+
+        message.innerHTML = "⚠ File converted to temporary local link (not shareable online).";
+    } 
+    else {
+        data = textInput.value.trim();
+
+        if (!data) {
+            alert("Please enter text or URL.");
+            return;
+        }
+
+        // Suggest improvement
+        if (data.length > 100) {
+            message.innerHTML = "💡 Tip: Shorter data improves QR scan speed.";
+        }
+    }
+
+    // Generate QR Code
+    new QRCode(qrContainer, {
+        text: data,
+        width: parseInt(size),
+        height: parseInt(size),
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // Success message
+    message.innerHTML += "<br>✅ Your QR code has been generated successfully.<br>📌 Content: " + data;
+}
+</script>
+
+</body>
+</html>
