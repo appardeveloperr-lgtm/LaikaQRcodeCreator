@@ -2,22 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Laika Agent</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #0f0f0f, #1a1a2e); color: white; text-align: center; }
-        .container { padding: 20px; }
-        h1 { color: #00f7ff; }
-        .card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; margin: 20px auto; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0,255,255,0.2); }
-        textarea { width: 100%; padding: 10px; border-radius: 10px; border: none; box-sizing: border-box; }
-        input[type="file"] { width: 100%; margin-top: 15px; color: #00f7ff; }
-        button { margin-top: 15px; padding: 12px; width: 100%; border: none; border-radius: 10px; background: #00f7ff; color: black; font-weight: bold; cursor: pointer; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; overflow-x: hidden; }
+        .container { padding: 15px; }
+        h1 { color: #00f7ff; font-size: 1.5rem; }
+        .card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; margin: 10px auto; width: 95%; max-width: 400px; box-sizing: border-box; }
+        textarea { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #333; background: #222; color: #fff; box-sizing: border-box; }
+        .file-box { margin-top: 15px; border: 1px dashed #00f7ff; padding: 10px; border-radius: 10px; }
+        input[type="file"] { width: 100%; color: #00f7ff; }
+        button { margin-top: 15px; padding: 12px; width: 100%; border: none; border-radius: 10px; background: #00f7ff; color: black; font-weight: bold; font-size: 1rem; }
         #qrcode { margin-top: 20px; display: flex; justify-content: center; }
-        .loading { display: none; margin-top: 20px; }
-        .scan-line { width: 100%; height: 3px; background: red; animation: scan 2s infinite; }
-        @keyframes scan { 0% {transform: translateY(0);} 50% {transform: translateY(200px);} 100% {transform: translateY(0);} }
-        .suggestion { margin-top: 10px; font-size: 14px; color: #00ff99; }
+        canvas { max-width: 100%; border-radius: 10px; }
+        .loading { display: none; margin-top: 20px; color: #00f7ff; }
     </style>
 </head>
 <body>
@@ -25,73 +24,71 @@
 <div class="container">
     <h1>🤖 Laika Agent</h1>
     <div class="card">
-        <h3>Enter Text / URL</h3>
         <textarea id="textInput" rows="3" placeholder="Enter text or URL..."></textarea>
-        <div class="suggestion" id="suggestion"></div>
-
-        <h3>OR Upload Image</h3>
-        <input type="file" id="fileInput" accept="image/*">
+        
+        <div class="file-box">
+            <small>OR Select Image from Phone</small><br><br>
+            <input type="file" id="fileInput" accept="image/*" onclick="this.value=null">
+        </div>
 
         <button onclick="generateQR()">Generate QR Code</button>
 
-        <div class="loading" id="loading">
-            <p>🔄 Creating QR Code...</p>
-            <div class="scan-line"></div>
-        </div>
-
+        <div class="loading" id="loading">🔄 Processing...</div>
         <div id="qrcode"></div>
-        <button id="downloadBtn" style="display:none;" onclick="downloadQR()">Download QR</button>
+        <button id="downloadBtn" style="display:none; background: #28a745;" onclick="downloadQR()">Save to Gallery</button>
     </div>
 </div>
 
 <script>
-    let qrData = "";
-
-    // Real-time suggestion logic
-    document.getElementById("textInput").addEventListener("input", function() {
-        let text = this.value;
-        let suggestion = text.includes("http") ? "🔗 URL Detected" : (text.length > 0 ? "📝 Text Detected" : "");
-        document.getElementById("suggestion").innerText = suggestion;
-    });
-
     function generateQR() {
         const text = document.getElementById("textInput").value;
         const file = document.getElementById("fileInput").files[0];
         const loader = document.getElementById("loading");
         const qrDiv = document.getElementById("qrcode");
+        const dlBtn = document.getElementById("downloadBtn");
 
         qrDiv.innerHTML = "";
+        dlBtn.style.display = "none";
+
+        if (!text && !file) {
+            alert("Please provide text or an image.");
+            return;
+        }
+
         loader.style.display = "block";
 
-        setTimeout(() => {
-            if (file) {
-                // NOTE: This creates a temporary local link. 
-                // It works for testing, but others scanning the QR won't see your image.
-                qrData = URL.createObjectURL(file);
-            } else {
-                qrData = text;
-            }
+        // If file exists, we use a FileReader to read it locally
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                createQR(e.target.result); // Encode the actual data/URL
+            };
+            reader.readAsDataURL(file);
+        } else {
+            createQR(text);
+        }
+    }
 
-            if (!qrData) {
-                alert("Please enter text or select an image");
-                loader.style.display = "none";
+    function createQR(data) {
+        const qrDiv = document.getElementById("qrcode");
+        const loader = document.getElementById("loading");
+        
+        QRCode.toCanvas(data, { width: 300, margin: 2 }, function (error, canvas) {
+            loader.style.display = "none";
+            if (error) {
+                alert("Data too large for QR!");
                 return;
             }
-
-            QRCode.toCanvas(qrData, { width: 250 }, function (error, canvas) {
-                loader.style.display = "none";
-                if (error) { alert("Error!"); return; }
-                qrDiv.appendChild(canvas);
-                document.getElementById("downloadBtn").style.display = "block";
-            });
-        }, 1500);
+            qrDiv.appendChild(canvas);
+            document.getElementById("downloadBtn").style.display = "block";
+        });
     }
 
     function downloadQR() {
         const canvas = document.querySelector("#qrcode canvas");
         const link = document.createElement("a");
-        link.download = "laika_qr.png";
-        link.href = canvas.toDataURL();
+        link.download = "qr_code.png";
+        link.href = canvas.toDataURL("image/png");
         link.click();
     }
 </script>
