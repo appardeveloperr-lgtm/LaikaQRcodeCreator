@@ -115,7 +115,7 @@ button:hover {
         <button onclick="generateQR()">Generate QR Code</button>
 
         <div class="loading" id="loading">
-            <p>🔄 Creating QR Code...</p>
+            <p id="loadingText">🔄 Creating QR Code...</p>
             <div class="scan-line"></div>
         </div>
 
@@ -126,66 +126,101 @@ button:hover {
 </div>
 
 <script>
-let qrData = "";
-
 function generateQR() {
-
-    const name = document.getElementById("name").value;
-    const age = document.getElementById("age").value;
-    const phone = document.getElementById("phone").value;
-    const email = document.getElementById("email").value;
-    const address = document.getElementById("address").value;
-    const type = document.getElementById("type").value;
-    const business = document.getElementById("businessName").value;
-    const text = document.getElementById("textInput").value;
+    const name = document.getElementById("name").value.trim();
+    const age = document.getElementById("age").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const address = document.getElementById("address").value.trim();
+    const type = document.getElementById("type").value.trim();
+    const business = document.getElementById("businessName").value.trim();
+    const text = document.getElementById("textInput").value.trim();
     const file = document.getElementById("fileInput").files[0];
 
     document.getElementById("qrcode").innerHTML = "";
-    document.getElementById("loading").style.display = "block";
     document.getElementById("downloadBtn").style.display = "none";
+    
+    const loadingDiv = document.getElementById("loading");
+    const loadingText = document.getElementById("loadingText");
+    loadingDiv.style.display = "block";
 
-    setTimeout(() => {
+    // 1. If user uploaded a file, send it to Cloudinary first
+    if (file) {
+        loadingText.innerText = "☁️ Uploading to Cloudinary...";
+        
+        const formData = new FormData();
+        formData.append("file", file);
+        // We use an "unsigned preset" here instead of your API Secret for security
+        formData.append("upload_preset", "laika_preset"); 
 
-        if (file) {
-            qrData = URL.createObjectURL(file);
-        } else {
-            qrData = `
-Name: ${name}
-Age: ${age}
-Phone: ${phone}
-Email: ${email}
-Address: ${address}
-Type: ${type}
-Business: ${business}
-Extra: ${text}
-            `;
-        }
+        fetch("https://api.cloudinary.com/v1_1/dge1gydq3/auto/upload", {
+            method: "POST",
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.secure_url) {
+                loadingText.innerText = "🔄 Generating QR Code...";
+                // Create the QR code with the Cloudinary URL
+                renderQRCanvas(data.secure_url); 
+            } else {
+                alert("Upload failed! Did you create the 'laika_preset' in Cloudinary?");
+                loadingDiv.style.display = "none";
+                console.error("Cloudinary Error:", data);
+            }
+        })
+        .catch(error => {
+            alert("Network error occurred during upload.");
+            loadingDiv.style.display = "none";
+            console.error(error);
+        });
 
-        if (!qrData.trim()) {
-            alert("Please fill details or upload file");
-            document.getElementById("loading").style.display = "none";
-            return;
-        }
+    } else {
+        // 2. If no file, generate a text-based QR code as usual
+        setTimeout(() => {
+            let dataParts = [];
+            if (name) dataParts.push(`Name: ${name}`);
+            if (age) dataParts.push(`Age: ${age}`);
+            if (phone) dataParts.push(`Phone: ${phone}`);
+            if (email) dataParts.push(`Email: ${email}`);
+            if (address) dataParts.push(`Address: ${address}`);
+            if (type) dataParts.push(`Type: ${type}`);
+            if (business) dataParts.push(`Business: ${business}`);
+            if (text) dataParts.push(`Extra: ${text}`);
 
-        QRCode.toCanvas(qrData, { width: 250 }, function (error, canvas) {
-            document.getElementById("loading").style.display = "none";
+            let qrData = dataParts.join('\n');
 
-            if (error) {
-                alert("Error generating QR");
+            if (!qrData) {
+                alert("Please fill in at least one detail or upload a file.");
+                loadingDiv.style.display = "none";
                 return;
             }
 
-            document.getElementById("qrcode").appendChild(canvas);
-            document.getElementById("downloadBtn").style.display = "block";
+            renderQRCanvas(qrData);
+        }, 800);
+    }
+}
 
-            alert("✅ QR Code Generated Successfully!");
-        });
+function renderQRCanvas(data) {
+    QRCode.toCanvas(data, { width: 250, margin: 2 }, function (error, canvas) {
+        document.getElementById("loading").style.display = "none";
 
-    }, 1500);
+        if (error) {
+            console.error(error);
+            alert("Error generating QR.");
+            return;
+        }
+
+        document.getElementById("qrcode").appendChild(canvas);
+        document.getElementById("downloadBtn").style.display = "block";
+
+        alert("✅ QR Code Generated Successfully!");
+    });
 }
 
 function downloadQR() {
     const canvas = document.querySelector("#qrcode canvas");
+    if (!canvas) return;
     const link = document.createElement("a");
     link.download = "laika_qr.png";
     link.href = canvas.toDataURL();
